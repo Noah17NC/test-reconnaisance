@@ -16,7 +16,7 @@
     const video = document.getElementById('video');
 
     const knownFaces = [
-      { name: 'Moi', file: '/known_faces/moi.jpg' }
+      { name: 'Moi', file: '/test-reconnaisance/known_faces/moi.jpg' }
     ];
 
     async function loadLabeledImages() {
@@ -50,10 +50,10 @@
 
     window.addEventListener('DOMContentLoaded', async () => {
       await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-        faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-        faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
-        faceapi.nets.ssdMobilenetv1.loadFromUri('/models')
+        faceapi.nets.tinyFaceDetector.loadFromUri('/test-reconnaisance/models'),
+        faceapi.nets.faceLandmark68Net.loadFromUri('/test-reconnaisance/models'),
+        faceapi.nets.faceRecognitionNet.loadFromUri('/test-reconnaisance/models'),
+        faceapi.nets.ssdMobilenetv1.loadFromUri('/test-reconnaisance/models')
       ]);
 
       const labeledDescriptors = await loadLabeledImages();
@@ -94,3 +94,4 @@
   </script>
 </body>
 </html>
+
