@@ -7,68 +7,65 @@
   <style>
     body { margin: 0; }
     canvas, video { position: absolute; top: 0; left: 0; }
+    #startCam {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
+  <button id="startCam">Activer la caméra</button>
   <video id="video" autoplay muted></video>
 
   <script>
     const video = document.getElementById('video');
+    const btn = document.getElementById('startCam');
+    const BASE_PATH = '/test-reconnaisance'; // Chemin pour GitHub Pages
 
-    const knownFaces = [
-      { name: 'Moi', file: '/test-reconnaisance/known_faces/moi.jpg' }
-    ];
+    const labels = ['Moi', 'Papa', 'Maman']; // noms des images dans known_faces
 
     async function loadLabeledImages() {
-  const labels = ['Moi', 'Papa', 'Maman']; // mets ici les noms des visages attendus
+      return Promise.all(
+        labels.map(async (label) => {
+          try {
+            const imgUrl = `${BASE_PATH}/known_faces/${label}.jpg`;
+            const img = await faceapi.fetchImage(imgUrl);
+            const detection = await faceapi
+              .detectSingleFace(img)
+              .withFaceLandmarks()
+              .withFaceDescriptor();
 
-  return Promise.all(
-    labels.map(async (label) => {
-      const descriptions = [];
+            if (!detection) throw new Error(`Aucun visage détecté pour ${label}`);
 
-      try {
-        const imgUrl = `/known_faces/${label}.jpg`;
-        const img = await faceapi.fetchImage(imgUrl);
-        const detection = await faceapi
-          .detectSingleFace(img)
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+            return new faceapi.LabeledFaceDescriptors(label, [detection.descriptor]);
+          } catch (err) {
+            console.warn(`⚠️ ${label} ignoré : ${err.message}`);
+            return null;
+          }
+        })
+      ).then(results => results.filter(Boolean));
+    }
 
-        if (!detection) {
-          throw new Error(`Aucun visage détecté pour ${label}`);
-        }
-
-        descriptions.push(detection.descriptor);
-        return new faceapi.LabeledFaceDescriptors(label, descriptions);
-      } catch (err) {
-        console.warn(`❌ ${label} ignoré : ${err.message}`);
-        return null;
-      }
-    })
-  ).then(results => results.filter(Boolean)); // enlève les null
-}
-
-    window.addEventListener('DOMContentLoaded', async () => {
+    async function startRecognition() {
+      // Charger tous les modèles
       await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri('/test-reconnaisance/models'),
-        faceapi.nets.faceLandmark68Net.loadFromUri('/test-reconnaisance/models'),
-        faceapi.nets.faceRecognitionNet.loadFromUri('/test-reconnaisance/models'),
-        faceapi.nets.ssdMobilenetv1.loadFromUri('/test-reconnaisance/models')
+        faceapi.nets.tinyFaceDetector.loadFromUri(`${BASE_PATH}/models`),
+        faceapi.nets.faceLandmark68Net.loadFromUri(`${BASE_PATH}/models`),
+        faceapi.nets.faceRecognitionNet.loadFromUri(`${BASE_PATH}/models`),
+        faceapi.nets.ssdMobilenetv1.loadFromUri(`${BASE_PATH}/models`)
       ]);
 
       const labeledDescriptors = await loadLabeledImages();
       const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
 
-      navigator.mediaDevices.getUserMedia({ video: {} })
-        .then(stream => {
-          video.srcObject = stream;
-        })
-        .catch(console.error);
-
+      // Détection en continu après démarrage caméra
       video.addEventListener('play', () => {
         const canvas = faceapi.createCanvasFromMedia(video);
         document.body.append(canvas);
-
         const displaySize = { width: video.videoWidth, height: video.videoHeight };
         faceapi.matchDimensions(canvas, displaySize);
 
@@ -78,7 +75,6 @@
             .withFaceDescriptors();
 
           const resized = faceapi.resizeResults(detections, displaySize);
-
           const ctx = canvas.getContext('2d');
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -90,8 +86,21 @@
           });
         }, 500);
       });
+    }
+
+    // Bouton pour activer la caméra
+    btn.addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+        video.srcObject = stream;
+        btn.style.display = 'none'; // masque le bouton après activation
+      } catch (err) {
+        console.error("Erreur caméra :", err);
+      }
     });
+
+    // Démarrage après chargement des modèles
+    window.addEventListener('DOMContentLoaded', startRecognition);
   </script>
 </body>
 </html>
-
